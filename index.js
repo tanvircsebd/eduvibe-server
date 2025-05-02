@@ -4,6 +4,7 @@ const cors = require("cors");
 const { Server } = require("socket.io"); // Socket io
 const http = require("http"); // ✅ HTTP module imported
 const { MongoClient, ServerApiVersion } = require("mongodb");
+const { ObjectId } = require("mongodb");
 
 const jwt = require("jsonwebtoken");
 // const { MongoClient, ServerApiVersion } = require('mongodb');
@@ -17,7 +18,7 @@ const server = http.createServer(app);
 // ✅ Socket.io server setup
 const io = new Server(server, {
   cors: {
-    // origin: "http://localhost:5173", // React Frontend cors
+    origin: "http://localhost:5173", // React Frontend cors
     origin: "*", // React Frontend cors for any site
     methods: ["GET", "POST"],
   },
@@ -61,6 +62,7 @@ async function run() {
     const eduVibe = client.db("eduVibe");
     const userCollection = eduVibe.collection("users");
     const contactsCollection = eduVibe.collection("contacts");
+    const courseCollection = eduVibe.collection("courses");
 
     //JWT and Token Setting related API
     app.post("/jwt", async (req, res) => {
@@ -133,6 +135,84 @@ async function run() {
         res.send(result);
       } catch (error) {
         res.status(500).send({ message: "Failed to save contact" });
+      }
+    });
+
+    // GET route to fetch all courses
+    app.get("/courses", async (req, res) => {
+      try {
+        const courses = await courseCollection.find().toArray();
+        res.status(200).json({ courses });
+      } catch (error) {
+        console.error("Error fetching courses:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+      }
+    });
+
+    // POST route to add a new course
+    app.post("/courses", async (req, res) => {
+      try {
+        // const collection = await dbConnect("courses");
+
+        const { name, description, instructor, duration, category, price } =
+          req.body;
+
+        console.log("Received data:", {
+          name,
+          description,
+          instructor,
+          duration,
+          category,
+          price,
+        });
+
+        if (
+          !name ||
+          !description ||
+          !instructor ||
+          !duration ||
+          !category ||
+          !price
+        ) {
+          return res.status(400).json({ message: "All fields are required" });
+        }
+
+        const newCourse = {
+          name,
+          description,
+          instructor,
+          duration,
+          category,
+          price,
+        };
+
+        console.log("Inserting new course:", newCourse);
+        await courseCollection.insertOne(newCourse);
+
+        res
+          .status(201)
+          .json({ message: "Course added successfully", course: newCourse });
+      } catch (error) {
+        console.error("Error during course insertion:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+      }
+    });
+
+    // Route to render course details
+    app.get("/courses/:id", async (req, res) => {
+      try {
+        const course = await courseCollection.findOne({
+          _id: new ObjectId(req.params.id),
+        });
+
+        if (!course) {
+          return res.status(404).json({ message: "Course not found" });
+        }
+
+        res.status(200).json({ course });
+      } catch (error) {
+        console.error("Error fetching course:", error);
+        res.status(500).json({ message: "Server error" });
       }
     });
 
